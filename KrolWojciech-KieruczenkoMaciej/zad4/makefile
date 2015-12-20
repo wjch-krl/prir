@@ -4,7 +4,7 @@ MPICC?=mpicc
 all: ${EXECS}
 
 gauss_mpi: gauss_mpi.cpp
-	${MPICC} -o gauss_mpi gauss_mpi.c
+	${MPICC}  `pkg-config --cflags --libs opencv` -o gauss_mpi gauss_mpi.cpp
 
 clean:
 	rm -f ${EXECS}
