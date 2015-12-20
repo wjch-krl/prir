@@ -1,0 +1,10 @@
+#ifndef _errors_hu_
+#define _errors_hu_
+
+#include <iostream>
+
+/* Macro used for checking if calling CUDA API functions have succeded */
+#define CHK_OK(X) \
+	if(X != cudaSuccess) { std::cerr<<"Error:"<<cudaGetErrorString(cudaGetLastError())<<", in:"<<__FILE__<<", at:"<< __LINE__<<");"<<".\n";  exit (1); } \
+
+#endif // _errors_hu_

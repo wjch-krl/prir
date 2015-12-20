@@ -1,0 +1,28 @@
+#ifndef common_h
+#define common_h
+
+#include <iostream>
+#include <fstream>
+#include <climits>
+#include <cmath>
+#include <vector>
+#include <chrono>
+#include <cmath>
+
+#include <curand.h>
+#include <curand_kernel.h>
+
+#include "kernels.cu"
+
+#define CHK_OK(X) \
+	if(X != cudaSuccess) { std::cerr<<"Error:"<<cudaGetErrorString(cudaGetLastError())<<", in:"<<__FILE__<<", at:"<< __LINE__<<");"<<".\n";  exit (1); } \
+
+class PrimeChecker
+{
+public:
+    virtual bool checkNumber(unsigned int n) = 0;
+};
+
+
+
+#endif 
