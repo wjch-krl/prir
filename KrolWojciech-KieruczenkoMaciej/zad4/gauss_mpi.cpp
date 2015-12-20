@@ -1,30 +1,55 @@
+#include <cstdio>
+#include <iostream>
+
+#include <cv.h>
 #include <mpi.h>
-#include <stdio.h>
+
+cv::Mat[] splitImage(cv::Mat originalImage,int splitsCount)
+{
+    cv::Size imgSize;
+    int splitWidth;
+    cv::Mat[] result;
+    result = new cv::Mat[splitsCount];
+    imgSize = inputImage.size();
+    splitWidth = imgSize.width / splitsCount;
+    for(int i=0;i<splitsCount;i++)
+    {
+        cv::Mat tmp;
+        tmp = cv::Mat(bigImage, cv::Rect(i*splitWidth, 0, (i+1)*splitWidth, imgSize.height));
+        result[i] = tmp;
+    }
+    return result;
+}
 
 int main(int argc, char** argv)
 {
-    // Initialize the MPI environment. The two arguments to MPI Init are not
-    // currently used by MPI implementations, but are there in case future
-    // implementations might need the arguments.
+    int worldSize;  
+    int worldRank;
+    cv::Mat inputImage;
+    
+    if(argc != 3)
+    {
+        std::cout<<"USAGE: "<< argv[0]<<" input.jpg output.jpg\n";
+    }
+    
+    //Init MPI communicator, get number of processes and current rank
     MPI_Init(NULL, NULL);
+    MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
+    MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
+ 
+    if(worldRank == 0)
+    {
+        cv::Mat[] splittedImage;
+        inputImage = imread(argv[1], 1 );
+        if(!inputImage.data)
+        {
+            std::cout<< "Invalid input image.\n");
+            exit(EXIT_FAILURE);
+        }
+        splittedImage = splitImage(inputImage,worldSize);
+        std::cout<<"\n\n"<<splittedImage[0]<<"\n\n";
+    }
     
-    // Get the number of processes
-    int world_size;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-    
-    // Get the rank of the process
-    int world_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    
-    // Get the name of the processor
-    char processor_name[MPI_MAX_PROCESSOR_NAME];
-    int name_len;
-    MPI_Get_processor_name(processor_name, &name_len);
-    
-    // Print off a hello world message
-    printf("Hello world from processor %s, rank %d out of %d processors\n",
-           processor_name, world_rank, world_size);
-    
-    // Finalize the MPI environment. No more MPI calls can be made after this
+    //MPI Cleanup
     MPI_Finalize();
 }
