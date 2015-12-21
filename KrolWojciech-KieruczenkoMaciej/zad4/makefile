@@ -1,12 +1,11 @@
 EXECS=gauss_mpi
 MPICC?=mpicc
-CFLAGS = `pkg-config --cflags opencv`
-LIBS = `pkg-config --libs opencv`
+LIBS = -lcv -lhighgui -lcvaux
 
 all: ${EXECS}
 
 gauss_mpi: gauss_mpi.cpp
-	${MPICC} $(CFLAGS) $(LIBS) -o gauss_mpi gauss_mpi.cpp
+	${MPICC} $(LIBS) -o gauss_mpi gauss_mpi.cpp
 
 clean:
 	rm -f ${EXECS}
