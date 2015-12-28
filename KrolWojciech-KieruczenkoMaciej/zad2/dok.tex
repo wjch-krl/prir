@@ -15,6 +15,7 @@
 \usepackage{wrapfig}
 \usepackage{listings}
 \usepackage{datetime}
+\usepackage[]{algorithm2e}
 
 \renewcommand{\onehalfspacing}{\setstretch{1.6}}
 
@@ -62,11 +63,39 @@ Grupa 6 & Wojciech Król, Maciej Kieruczenko & \ddmmyyyydate\today \tabularnewli
 
 \section*{Zadanie 2 - Wyznacznik macierzy - GPU}
 
-Ćwiczenie polegało na policzeniu wyznacznika zadanej w parametrze wywołania macierzy przy pomocy biblioteki CUDA. Mierzony był czas wykonywanych obliczeń, który zmieniał się wraz z kolejnymi wątkami.
+Ćwiczenie polegało na policzeniu wyznacznika macierzy wykorzystując technologię CUDA. Macierz zapisana była w pliku tekstowym, którego ścieżka była parametrem wywołania programu. W celu zbadania wydajności algorytmu mierzony był czas wykonywanych obliczeń.
 
-Według definicji wyznacznik macierzy jest unikalną liczbą, która jest przyporządkowywana macierzy kwadratowej. W programie skorzystano z rozkladu LU, dzięki któremu wyznacznik można wyliczyć przy pomocy wzoru: $det(A)=det(L*U)=det(L)*det(U)$ (co jest równe sumie elementów na przekątnej macierzy U: $\sum_{i=0}^{n-1} u_{i,i}$), gdzie L to macierz dolna, a U macierz górna. 
+Według definicji wyznacznik macierzy jest unikalną liczbą, która jest przyporządkowywana macierzy kwadratowej. W programie skorzystano z dekompozycji LU, dzięki której wyznacznik można wyliczyć ze wzoru: $det(A)=det(L*U)=det(L)*det(U)$ (co jest równe sumie elementów na przekątnej macierzy U: $\sum_{i=0}^{n-1} u_{i,i}$), gdzie L to macierz dolna, U macierz górna, a A macierz oryginalna. 
 
-Poniżej znajduje się część kodu programu wykonywana równolegle:
+W celu decompozycji macierzy wykorzystano algorytm Doolite'a, którego pseudokod znajduje się poniżej:
+
+
+\begin{algorithm}[H]
+\KwData{Macierz kwadratowa A o rozmiarze n}
+ \KwResult{Zdekomponowana macierz}
+ \For{i = 1,... ,n}
+ {
+  \For{j = 1,... ,n}
+  {
+ \For{k = 1,... ,i - 1}
+  {
+	a[i,j]=a[i,j]-a[i,k]*a[k,j]
+	}
+}
+\tcc{Ta pętla będzie zrównoleglana}
+  \For{j = i+1,...,n}
+  {
+ \For{k = 1,... ,i - 1}
+  {
+	a[j,i]=a[j,i]-a[j,k]*a[k,i]
+	}
+	            a[j,i]=a[j,i]/a[i,i]
+
+}
+}
+\end{algorithm}
+
+Zrównoleglana był fragment algorytmu zaznaczony w powyższym pseudokodzie - obliczenia w nim wykonywane są niezależne od kolejnych iteracji. Poniżej znajduje się część kodu programu wykonywana na GPU:
 
 \begin{lstlisting}
 __global__ void decompositionKernelNew(double *deviceMtrx, int mtrxSize, int idx, int maxIndex)
@@ -91,7 +120,7 @@ Do otrzymania bieżącej wartości zmiennej \textit{tid} wykorzystywany jest ind
 decompositionKernelNew <<<blockCount, threadCount>>>(deviceMtrx, mtrxSize, idx,mtrxSize - idx - 1);
 \end{lstlisting}
 
-Testy były wykonywane na macierzy 1000x1000. Liczbę bloków ustalono na 10. Wyliczony wyznacznik macierzy wyniósł $-7.12832e+13$. Wyniki zestawiono w postaci dwóch wykresów - zależności czasu obliczeń oraz przyspieszenia od liczby wątków. Dodatkowo należy wspomnieć, że ze względu na brak wykorzystania pamięci współdzielonej i synchronizacji sposób podziału na gridy/bloki jest nie istony - ważna jest jedynie sumaryczna liczba wątków.
+Testy były wykonywane na macierzy 1000x1000. Liczbę bloków ustalono na 10. Wyniki zestawiono w postaci dwóch wykresów - zależności czasu obliczeń oraz przyspieszenia od liczby wątków. Dodatkowo należy wspomnieć, że ze względu na brak wykorzystania pamięci współdzielonej i synchronizacji sposób podziału na gridy/bloki jest nie istony - ważna jest jedynie sumaryczna liczba wątków.
 
 \begin{figure}[!h]
 	\centering
@@ -104,7 +133,7 @@ Testy były wykonywane na macierzy 1000x1000. Liczbę bloków ustalono na 10. Wy
 \end{figure}
 
 \vspace{10cm}
-Na podstawie powyższych wykresów można stwierdzić, że wyniki pomiaru czasu obliczeń są zgodne z oczekiwanymi. Dla niewielkiej ilości wątków wzrost przyspieszenia był bardzo gwałtowny, zaś poczynając od ok. 50 wątków zaczął się stabilizować na stałym poziomie. Dzieje się tak z powowodu nierównomiernego rozłożenia pracy między poszczególne wątki.
+Na podstawie powyższych wykresów można stwierdzić, że dla niewielkiej ilości wątków wzrost przyspieszenia był bardzo gwałtowny, zaś poczynając od ok. 50 wątków zaczął się stabilizować na stałym poziomie. Dzieje się tak z powodu możliwości nierównomiernego rozłożenia pracy między poszczególne wątki, dla niewielkiej ich ilości.
 
 \vspace{1cm}
 Wnioski z wykonywanego ćwiczenia:

@@ -23,6 +23,8 @@ cv::Mat* splitImage(cv::Mat originalImage,int splitsCount)
     return result;
 }
 
+
+
 int main(int argc, char** argv)
 {
     int worldSize;  
