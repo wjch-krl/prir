@@ -65,7 +65,7 @@ Grupa 6 & Wojciech Król, Maciej Kieruczenko & \ddmmyyyydate\today \tabularnewli
 
 \section*{Zadanie 3 - Liczby pierwsze - GPU}
 
-Ćwiczenie polegało na przetestowaniu podanej bazy dużych liczb w celu sprawdzenia, które z nich należą do zbioru liczb pierwszych, a które do zbioru liczb złożonych. Program wykonano w technologii CUDA wykorzystując algorytm Millera-Rabina (Początkowo zaimplementowano sito Eratostenesa jednak ze względu na nie akceptowalny czas wymagany do wygenerowania wszystkich liczb pierwszych (liczby były przechowywane w tablicy całkowitej sprawdzanie a dostęp do poszczególnych odbywał się z użyciem maski bitowej) z danego przedziału zdecydowano się na opisany poniżej algorytm) .
+Ćwiczenie polegało na przetestowaniu podanej bazy dużych liczb w celu sprawdzenia, które z nich należą do zbioru liczb pierwszych, a które do zbioru liczb złożonych. Program wykonano w technologii CUDA wykorzystując algorytm Millera-Rabina. Początkowo zaimplementowano sito Eratostenesa, jednak ze względu na nieakceptowalny czas wymagany do wygenerowania wszystkich liczb pierwszych (liczby były przechowywane w tablicy całkowitej, a dostęp do poszczególnych odbywał się z użyciem maski bitowej) z danego przedziału zdecydowano się na opisany poniżej algorytm.
 
 Według definicji algorytm/test Millera-Rabina pozwala na sprawdzenie, czy interesująca nas liczba jest złożona, czy \textit{prawdopodobnie} pierwsza. Słowo "prawdopodobnie" jest tutaj bardzo ważne, ponieważ nigdy nie będziemy mieli 100-procentowej pewności, że test dokonał poprawnej oceny, jednakże mamy możliwość zwiększenia dokładności algorytmu poprzez zwiększenie liczby iteracji. 
 
