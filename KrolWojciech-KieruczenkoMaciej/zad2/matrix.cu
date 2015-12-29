@@ -129,11 +129,10 @@ public:
             for (int j = startIdx + 1; j < endIdx; j++)
             {
                 hostMtrx[j] = (hostMtrx[j] / hostMtrx[startIdx]);
-            }
+            } 
             //Update device matrix
             copyToDevice(startIdx, mtrxSize - idx);
             //Second decomposition step - on GPU
-            //decompositionKernel <<<(mtrxSize - idx - 1), 1 >>>(deviceMtrx, mtrxSize, idx);
             decompositionKernel <<<blockCount, threadCount>>>(deviceMtrx, mtrxSize, idx,mtrxSize - idx - 1);
             
             idx++;

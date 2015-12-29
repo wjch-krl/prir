@@ -2,65 +2,43 @@
 
 #define NUMBERS_IN_CELL (sizeof(int)*8)
 
-__device__ void getIdxAndMask(unsigned int number, int* idx, int* mask)
-{
-    *idx = number / NUMBERS_IN_CELL;
-    *mask = (1 <<(number % NUMBERS_IN_CELL));
-}
-
-__global__ void setupRandom( curandState * state, unsigned long seed, int k)
+/**
+Initializes Curand lib
+**/
+__global__ void initCurand( curandState * state, unsigned long seed, int count)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    while(idx<k)
+    while(idx<count)
     {
+        //inicjalizacja bibloteki curand - dla każdego indexu
         curand_init (seed, idx, 0, &state[idx]);
         idx+=blockDim.x * gridDim.x;  
     }
 } 
 
-__device__ void rand( curandState* globalState, unsigned int min,unsigned int max, unsigned int* rand) 
+/**
+Generates random integer between given values
+**/
+__device__ void rand( curandState* globalState, unsigned int min,unsigned int max, 
+    unsigned int* rand) 
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     curandState localState = globalState[idx];
+    //losowanie liczby zmienno przecinkowej z przediału 0 .. 1
     float randomFloat = curand_uniform( &localState );
+    //Konwersja do liczby całkowitej w zadanym przedziale
     randomFloat *= (max - min + 0.999999);
     randomFloat += min;
     *rand = (unsigned int)randomFloat;
     globalState[idx] = localState; 
 }
 
-__global__ void detatchNumber(int* deviceArray, unsigned int maxValue)
-{
-    int id, mask;
-    unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    unsigned int idy = threadIdx.y + blockIdx.y * blockDim.y;
-    if(idx > 1 && idy > 1 )
-    {
-        unsigned long number = idx * idy;
-        while(number <= maxValue)
-        {
-            // getIdxAndMask(number,&id, &mask);
-            // atomicOr(&deviceArray[id], mask);
-            int newIdy = idy;
-            while(number <= maxValue)
-            {
-                getIdxAndMask(number,&id, &mask);
-                atomicOr(&deviceArray[id], mask);
-    
-                newIdy += blockDim.y * gridDim.y;   
-                number = idx * newIdy;          
-            }
-            idx += blockDim.x * gridDim.x;         
-            number = idx * idy;          
-        }
-    }
-}
-
 /**
-Function for calculation a^x mod n, based on
+Function for calculation a^x mod number, based on
 http://en.wikipedia.org/wiki/Modular_exponentiation
 **/
-__device__ void powerModulo(unsigned int a, unsigned int x, unsigned int n, unsigned int* result)
+__device__ void powerModulo(unsigned int a, unsigned int x, unsigned int number, 
+    unsigned int* result)
 {
     unsigned long rLong=1;
     unsigned long aLong=a;
@@ -68,53 +46,61 @@ __device__ void powerModulo(unsigned int a, unsigned int x, unsigned int n, unsi
     {
         if ((x & 1) == 1)
         {
-            rLong = aLong*rLong % n;
+            rLong = aLong*rLong % number;
         }
-        aLong = aLong*aLong % n;
         x >>= 1;
+        aLong = aLong*aLong % number;
     }
     *result = (unsigned int)rLong;
 }
 
-
-
-__device__ void checkPrimeNumber(curandState* globalState, unsigned int n,unsigned int d,int s,unsigned int* result)
+/**
+Checks given number if prime (single iteration of Miller-Rabin algorithm)
+**/
+__device__ void checkPrimeNumber(curandState* globalState, unsigned int number,
+    unsigned int exponent,int multiper,unsigned int* result)
 {
     unsigned int a;
-    rand(globalState,2, n-2,&a);
+    //Get random int between 2 and number - 2
+    rand(globalState,2, number-2,&a);
     unsigned int x;
-    powerModulo(a,d,n,&x);
-
-    if ( x == 1 || x == n-1 )
+    powerModulo(a,exponent,number,&x);
+    if ( x == 1 || x == number-1 )
     {
         return;
     }
-    for ( int r = 1; r <= s-1; ++r ) 
+    for ( int i = 1; i <= multiper-1; i++ ) 
     {
-        powerModulo(x, 2, n, &x);
+        powerModulo(x, 2, number, &x);
         if ( x == 1 ) 
         {
+            //Not a prime - return and set flag
             atomicAdd(result,1);
             return;
         }
-        if ( x == n - 1 )
+        if ( x == number - 1 )
         {
             return;
         }
-        if(*result != 0)
+        //Check for other threads result.
+        //Check every 10th iteration to avoid slow global memory acces
+        if(i % 10 == 0 && *result != 0)
         {
             return;
         }
     }
+    //Not a prime - set flag
     atomicAdd(result,1);
 }
 
-__global__ void checkPrimeMillerRabin( curandState* globalState, unsigned int n,unsigned int d, int k, int s,unsigned int* result)
+__global__ void checkPrimeMillerRabin( curandState* globalState, unsigned int number,
+    unsigned int exponent, int count, int multiper,unsigned int* result)
 {
      int idx = threadIdx.x + blockIdx.x * blockDim.x;
-     while(idx<k)
+     //If indx < count (precision) then Chceck number     
+     while(idx<count)
      {
-        checkPrimeNumber(globalState,n,d,s,result);
+        checkPrimeNumber(globalState,number,exponent,multiper,result);
         if(*result != 0)
         {
             return;

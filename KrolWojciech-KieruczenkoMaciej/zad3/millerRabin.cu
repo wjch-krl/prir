@@ -11,30 +11,45 @@ public:
         this->numberOfIterations = numberOfIterations;
     }
     
-    virtual bool checkNumber(unsigned int n)
+    /**
+    Check if number is propapbly prime
+    **/
+    virtual bool checkNumber(unsigned int number)
     {
-        // Must have ODD n greater than THREE
-        if ( n==2 || n==3 ) return true;
-        if ( n<=1 || n % 2 == 0) return false;
+        // return for small or even values
+        if ( number==2 || number==3 ) 
+        {
+            return true;
+        }
+        if ( number<=1 || number % 2 == 0)
+        {
+            return false;
+        }
+        // Rewrite number-1 (this is event number) as multiper*2^exponent
+        int exponent = 0;
+        unsigned int tmp = number-1;
+        while(!(tmp & 1))
+        {
+            exponent++;
+            tmp >>= 1;
+        }
         
-        // Write n-1 as d*2^s by factoring powers of 2 from n-1
-        int s = 0;
-        for ( unsigned int m = n-1; !(m & 1); ++s, m >>= 1 ); 
+        unsigned int multiper = (number-1) / (1<<exponent);
         
-        unsigned int d = (n-1) / (1<<s);
-        
+        //Alocate device memory
         curandState* devStates;
         unsigned int* devResult;
         unsigned int result;
         CHK_OK( cudaMalloc ( &devStates, numberOfIterations*sizeof( curandState ) ));
         CHK_OK( cudaMalloc ( &devResult, sizeof(unsigned int) )); 
-        CHK_OK( cudaMemset( devResult, 0, sizeof(unsigned int)));  
-            
-        setupRandom<<<(numberOfIterations+31)/32,32>>>(devStates,123,numberOfIterations);
-        checkPrimeMillerRabin<<<(numberOfIterations+31)/32,32>>>(devStates,n,d,numberOfIterations,s,devResult);
-        
+        //Set flag to 0
+        CHK_OK( cudaMemset ( devResult, 0, sizeof(unsigned int)));  
+        //Init curand
+        initCurand<<<(numberOfIterations+31)/32,32>>>(devStates,123,numberOfIterations);
+        //Check for prime number
+        checkPrimeMillerRabin<<<(numberOfIterations+31)/32,32>>>(devStates,number,multiper,numberOfIterations,exponent,devResult);
+        //Copy result back to Host
         CHK_OK(cudaMemcpy(&result, devResult, sizeof(unsigned int), cudaMemcpyDeviceToHost));
-        // n is *probably* prime
         return result == 0;
     }
 
