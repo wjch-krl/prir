@@ -34,8 +34,7 @@ public:
             tmp >>= 1;
         }
         
-        unsigned int multiper = (number-1) / (1<<exponent);
-        
+        unsigned int multiper = (number-1) / (1<<exponent); 
         //Alocate device memory
         curandState* devStates;
         unsigned int* devResult;
