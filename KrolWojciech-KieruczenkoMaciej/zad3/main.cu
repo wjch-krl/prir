@@ -1,6 +1,6 @@
+#include <tuple>
 #include "common.hu"
 #include "millerRabin.cu"
-#include "erastotanesSiege.cu"
 
 void processFile(std::string &filePath, std::vector<unsigned int> *numbers,unsigned int *max)
 {
@@ -21,12 +21,13 @@ void processFile(std::string &filePath, std::vector<unsigned int> *numbers,unsig
 std::vector<std::tuple<unsigned int, bool>>* check(std::vector<unsigned int> *numbers,PrimeChecker* checker)
 {    
     std::vector<std::tuple<unsigned int, bool>> *result = 
-        new std::vector<std::tuple<unsigned int, bool>>(number.size());
+        new std::vector<std::tuple<unsigned int, bool>>(numbers->size());
     int i = 0;
     for (auto &number : *numbers) // access by reference to avoid copying
     {  
-        result->push_back(checker->checkNumber(number));
+        result->at(i++) = std::make_tuple(number,checker->checkNumber(number));
     }
+    return result;
 }
 
 void printResult(std::vector<std::tuple<unsigned int, bool>>* result)
@@ -71,10 +72,12 @@ int main(int argc, char** argv)
 	*/
 	auto t1 = std::chrono::high_resolution_clock::now();
 	/* Calculate determinant, next print value and computation time */
-    check(numbers,checker);
+    auto result = check(numbers,checker);
 	auto t2 = std::chrono::high_resolution_clock::now();
     std::cout << "Time: " <<  std::chrono::duration_cast<std::chrono::milliseconds>(t2 
 		- t1).count() << " ms\n";
+    //Print result
+    printResult(result);   
     delete checker;
     return 0;
 }

@@ -1,6 +1,6 @@
 EXECS=gauss_mpi
 MPICC?=mpicc
-LIBS = -lcv -lhighgui -lcvaux
+LIBS = $(pkg-config --cflags --libs opencv)
 
 all: ${EXECS}
 
