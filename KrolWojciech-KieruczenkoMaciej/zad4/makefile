@@ -1,11 +1,10 @@
 EXECS=gauss_mpi
 MPICC?=mpicc
-LIBS = $(pkg-config --cflags --libs opencv)
 
 all: ${EXECS}
 
 gauss_mpi: gauss_mpi.cpp
-	${MPICC} $(LIBS) -o gauss_mpi gauss_mpi.cpp
+	${MPICC} -o gauss_mpi -lopencv_highgui -lopencv_core -I/opt/opencv/include -L/opt/opencv/lib
 
 clean:
 	rm -f ${EXECS}

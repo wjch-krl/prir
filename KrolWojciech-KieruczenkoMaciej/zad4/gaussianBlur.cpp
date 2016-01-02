@@ -1,128 +1,149 @@
 #include <iostream>
 
-int weights[7][7] = {
-            {1,1,2,2,2,1,1},
-            {1,2,2,4,2,2,1},
-            {2,2,4,8,4,2,2},
-            {2,4,8,16,8,4,2},
-            {2,2,4,8,4,2,2},
-            {1,2,2,4,2,2,1},
-            {1,1,2,2,2,1,1}
-        };;
+#include <mpi.h>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
+#define MASK_SIZE 7
+
+int weights[MASK_SIZE][MASK_SIZE] = {
+    {1,1,2,2,2,1,1},
+    {1,2,2,4,2,2,1},
+    {2,2,4,8,4,2,2},
+    {2,4,8,16,8,4,2},
+    {2,2,4,8,4,2,2},
+    {1,2,2,4,2,2,1},
+    {1,1,2,2,2,1,1}
+};;
 
 class GaussianBlur
 {
-private:
-
-    int size;
-    int weightsSum;
-    
 public:
-    
-    GaussianBlur()
-    {
-        this->size = 7;
-        this->weightsSum = 0;           
-        for(int i = 0;i<size;i++)
-        {
-            for(int j = 0;j<size;j++)
-            {
-                this->weightsSum += weights[i][j];
-            }
-        }
-    }
 
-    unsigned char** Blur(unsigned char** image, int width, int height)
+    uchar* Blur(uchar* image, int width, int height, int workHeight)
     {
-        unsigned char** resultImage = new unsigned char*[width];
-        int offset = this->size / 2 + 1;
+        uchar* resultImage = new uchar[width+width*height];
+        int offset = MASK_SIZE / 2;
         for(int i= 0; i< width; i++)
         {
-            resultImage[i] = new unsigned char[height];
-            for (int j = 0; j< height; j++)
+            for (int j = 0; j< workHeight; j++)
             {
                 int pixelValue = 0;
                 //[i][j] current pixel
                 int weightsIdx = 0;
                 int weightsIdy = 0;
-                
-                for(weightsIdx = (i - this->size) > 0 ? 0 : this->size - i; 
-                    weightsIdx<this->size && (i + weightsIdx) < width; weightsIdx ++)
+                int weightsSum = 0;
+                for(weightsIdx = (i - offset) > 0 ? 0 : offset- i;
+                    weightsIdx<MASK_SIZE; weightsIdx ++)
                 {
-                    for(weightsIdx = (i - this->size) > 0 ? 0 : this->size - i;
-                        weightsIdx<this->size && (i + weightsIdx) < width; weightsIdx ++)
+                    for(weightsIdy = (j - offset) > 0 ? 0 : offset- j;
+                        weightsIdy<MASK_SIZE; weightsIdy++)
                     {
                         int k = weightsIdx - offset + i;
-                        int l = weightsIdy - offset + j;                    
-                        pixelValue += weights[weightsIdx][weightsIdy]*resultImage[k][l];
+                        int l = weightsIdy - offset + j;
+                        if(k<width && l<height)
+                        {
+                            pixelValue += weights[weightsIdx][weightsIdy]*image[k+width*l];
+                            weightsSum += weights[weightsIdx][weightsIdy];
+                        }
                     }
-                }  
+                }
                 pixelValue /= weightsSum;
                 if (pixelValue > 255)
                     pixelValue = 255;
                 else if (pixelValue < 0)
-                    pixelValue = 0;           
-                resultImage[i][j] = (unsigned char)pixelValue;
+                    pixelValue = 0;
+                resultImage[i+width*j] = (uchar)pixelValue;
             }
         }
         return resultImage;
-    }    
+    }
 };
 
-void printMatrix(unsigned char** mtrx, int size)
+uchar** matToArrays(cv::Mat& mat)
 {
-    for(int i = 0;i<size;i++)
+    int chanels = mat.channels();
+    int cols = mat.cols;
+    int rows = mat.rows;
+    uchar **m = new uchar*[chanels];
+    int chanelSize = cols + cols*rows;
+    for(int k = 0 ; k< chanels ; k++)
     {
-        for(int j = 0;j<size;j++)
-        {
-            std::cout<<mtrx[i][j] << "\t";
-        }
-        std::cout <<"\n";
+        m[k] = new uchar[chanelSize];
     }
+    for (int i = 0; i < cols; ++i)
+    {
+        for (int j = 0; j < rows; ++j)
+        {
+            cv::Vec3b point = mat.at<cv::Vec3b>(cv::Point(i,j));
+            for(int k = 0 ; k< chanels ; k++)
+            {
+                uchar color = point[k];
+                m[k][i + cols * j] = color;
+            }
+        }
+    }
+    return m;
 }
+
+cv::Mat* arraysToMat(uchar** m,int chanelCount, int height, int widht)
+{
+    cv:: Mat* mat = new cv::Mat(height,widht,CV_8UC(chanelCount));
+    for (int i = 0; i < height; ++i)
+    {
+        for (int j = 0; j < widht; ++j)
+        {
+            cv::Vec3b point;
+            for(int k = 0 ; k< chanelCount ; k++)
+            {
+                point[k] = m[k][j+widht * i];
+            }
+            mat->at<cv::Vec3b>(cv::Point(j,i)) = point;
+        }
+    }
+    return mat;
+}
+
 
 int main(int argc, char** argv)
 {
     GaussianBlur* gb = new GaussianBlur();
-    int size = 7;
-    unsigned char test1[7][7] = {
-                {1,1,2,2,2,1,1},
-                {1,2,2,4,2,2,1},
-                {2,2,4,8,4,2,2},
-                {2,4,8,16,8,4,2},
-                {2,2,4,8,4,2,2},
-                {1,2,2,4,2,2,1},
-                {1,1,2,2,2,1,1}
-            };
-    unsigned char test2[7][7] = {
-                {1,1,1,1,1,1,1},
-                {1,1,1,1,1,1,1},
-                {1,1,1,1,1,1,1},
-                {1,1,1,1,1,1,1},
-                {1,1,1,1,1,1,1},
-                {1,1,1,1,1,1,1},
-                {1,1,1,1,1,1,1}
-            };
-            
-    unsigned char test3[7][7] = {
-                {1,2,1,2,1,2,1},
-                {2,1,2,1,2,1,2},
-                {1,2,1,2,1,2,1},
-                {2,1,2,1,2,1,2},
-                {1,2,1,2,1,2,1},
-                {2,1,2,1,2,1,2},
-                {1,2,1,2,1,2,1}
-            };
-    unsigned char ** tmp = new  unsigned char* [size];  
-     for(int i = 0;i<size;i++)
+    // Initialize MPI
+    MPI_Init(NULL, NULL);
+
+    // Get number of processes
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    // Get process rank
+    int world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+    int chanel;
+    if (world_rank == 0) 
     {
-        tmp[i] = new unsigned char[size];
-        for(int j = 0;j<size;j++)
+        cv::Mat inputImage = cv::imread("/Users/wojciechkrol/tmp/dupxo/test.jpg", 1 );
+        int chanelCount =inputImage.channels();
+        uchar** imageArrays = matToArrays(inputImage);
+        uchar** bluredArrays = new uchar*[chanelCount];
+
+        for (int i = 0; i <chanelCount;i++)
         {
-            tmp[i][j]=test1[i][j];
+            MPI_Send(&i, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);            
+            bluredArrays[i] = gb->Blur(imageArrays[i], inputImage.cols, inputImage.rows, inputImage.rows);
         }
+        
+        auto bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);      
+        imwrite("/Users/wojciechkrol/tmp/dupxo/blured.jpg", *bluredImage);
+    } 
+    else
+    {
+        MPI_Recv(&chanel, 1, MPI_INT, 0, 0, MPI_COMM_WORLD,
+                MPI_STATUS_IGNORE);
     }
-    printMatrix(tmp,size);
-    std::cout<<"\n======\n";
-    printMatrix(gb->Blur(tmp,size,size),size);       
+    
+    //Cleanup
+    MPI_Finalize();
 }
