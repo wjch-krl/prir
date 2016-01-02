@@ -18,10 +18,6 @@ int weights[MASK_SIZE][MASK_SIZE] = {
     {1,1,2,2,2,1,1}
 };;
 
-class GaussianBlur
-{
-public:
-
     uchar* Blur(uchar* image, int width, int height, int workHeight)
     {
         uchar* resultImage = new uchar[width+width*height];
@@ -60,7 +56,6 @@ public:
         }
         return resultImage;
     }
-};
 
 uchar** matToArrays(cv::Mat& mat)
 {
@@ -109,7 +104,7 @@ cv::Mat* arraysToMat(uchar** m,int chanelCount, int height, int widht)
 
 int main(int argc, char** argv)
 {
-    GaussianBlur* gb = new GaussianBlur();
+    //GaussianBlur* gb = new GaussianBlur();
     // Initialize MPI
     MPI_Init(NULL, NULL);
 
@@ -132,7 +127,7 @@ int main(int argc, char** argv)
         for (int i = 0; i <chanelCount;i++)
         {
             MPI_Send(&i, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);            
-            bluredArrays[i] = gb->Blur(imageArrays[i], inputImage.cols, inputImage.rows, inputImage.rows);
+            bluredArrays[i] = Blur(imageArrays[i], inputImage.cols, inputImage.rows, inputImage.rows);
         }
         
         cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);      
