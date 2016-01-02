@@ -135,7 +135,7 @@ int main(int argc, char** argv)
             bluredArrays[i] = gb->Blur(imageArrays[i], inputImage.cols, inputImage.rows, inputImage.rows);
         }
         
-        auto bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);      
+        cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);      
         imwrite("/Users/wojciechkrol/tmp/dupxo/blured.jpg", *bluredImage);
     } 
     else
