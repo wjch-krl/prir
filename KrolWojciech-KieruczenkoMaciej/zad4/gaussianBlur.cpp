@@ -135,8 +135,9 @@ int main(int argc, char** argv)
         }
         int chanelCount =inputImage.channels();
         int imgWidth = inputImage.cols;
-        int imgHeight = inputImage.rows / worldSize;
-        int workHeight = imgHeight + MASK_SIZE;
+        int imgHeight = inputImage.rows;
+        int fragmentHeight = inputImage.rows / worldSize;
+        int workHeight = fragmentHeight + MASK_SIZE;
         
         uchar** imageArrays = matToArrays(inputImage);
         uchar** bluredArrays = new uchar*[chanelCount];
@@ -156,8 +157,8 @@ int main(int argc, char** argv)
             for (int i = 0; i <chanelCount;i++)
             {  
                 std::cout<<"sending image data to "<< j<<" chanel: "<<i<<"\n";
-                MPI_Send(&imageArrays[i][j*imgHeight], workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
-                MPI_Recv(&bluredArrays[i][j*imgHeight], imgHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);            
+                MPI_Send(&imageArrays[i][(j-1)*fragmentHeight], j == worldSize -1 ? fragmentHeight : workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
+                MPI_Recv(&bluredArrays[i][(j-1)*fragmentHeight], fragmentHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);            
             }
         }
     
@@ -167,15 +168,15 @@ int main(int argc, char** argv)
     } 
     else
     {
-	int chanelCount;
+	    int chanelCount;
         int imgWidth;
-        int imgHeight;
+        int fragmentHeight;
         int workHeight;
         std::cout<<"getting image info at "<< worldRank <<"\n";
         MPI_Recv(&chanelCount, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         std::cout<<"got chanelCount at "<< worldRank <<"\n";
         MPI_Recv(&imgWidth, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&imgHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&fragmentHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(&workHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         uchar* buffer = new uchar[workHeight];
         
@@ -184,8 +185,8 @@ int main(int argc, char** argv)
             uchar* blured;
             std::cout<<"getting image data at "<< worldRank <<" chanel: "<<i<<"\n";
             MPI_Recv(buffer, workHeight, MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);  
-            blured = Blur(buffer, imgWidth, imgHeight, workHeight);
-            MPI_Send(blured, imgHeight, MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD);     
+            blured = Blur(buffer, imgWidth, fragmentHeight, workHeight);
+            MPI_Send(blured, fragmentHeight, MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD);     
         }
     }
     
