@@ -110,7 +110,7 @@ int main(int argc, char** argv)
 {
     if(argc != 3)
     {
-        std::cout<<"Usage: \nmpirun "<<argv[0]<< "INPUT_FILE_PATH OUTPUT_FILE_PATH \n";
+        std::cout<<"Usage: \nmpirun "<<argv[0]<< " INPUT_FILE_PATH OUTPUT_FILE_PATH \n";
         exit(EXIT_FAILURE);
     }
     //GaussianBlur* gb = new GaussianBlur();
@@ -148,6 +148,7 @@ int main(int argc, char** argv)
         }
         for(int j = 1; j< worldSize ; j++)
         {
+            cout<<"sending image info to "<< j<<"\n";
             MPI_Send(&chanelCount, 1, MPI_INT, j, 0, MPI_COMM_WORLD);  
             
             MPI_Send(&imgWidth, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
@@ -156,6 +157,7 @@ int main(int argc, char** argv)
                     
             for (int i = 0; i <chanelCount;i++)
             {  
+                cout<<"sending image data to "<< j<<" chanel: "<<i<<"\n";
                 MPI_Send(&imageArrays[i][j*imgHeight], workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
                 MPI_Recv(&bluredArrays[i][j*imgHeight], imgHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);            
             }
@@ -171,6 +173,7 @@ int main(int argc, char** argv)
         int imgWidth;
         int imgHeight;
         int workHeight;
+        cout<<"getting image info at "<< worldRank <<"\n";
         MPI_Recv(&chanelCount, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(&imgWidth, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(&imgHeight, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -180,6 +183,7 @@ int main(int argc, char** argv)
         for (int i = 0; i <chanelCount;i++)
         {  
             uchar* blured;
+            cout<<"getting image data at "<< worldRank <<" chanel: "<<i<<"\n";
             MPI_Recv(buffer, workHeight, MPI_UNSIGNED_CHAR, worldRank,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);  
             blured = Blur(buffer, imgWidth, imgHeight, workHeight);
             MPI_Send(blured, imgHeight, MPI_UNSIGNED_CHAR, worldRank,0,MPI_COMM_WORLD);     
