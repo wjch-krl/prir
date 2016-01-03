@@ -154,7 +154,7 @@ int main(int argc, char** argv)
             MPI_Send(&imgWidth, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
             MPI_Send(&workHeight, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
                     
-            for (int i = 0; i <2;i++)
+            for (int i = 0; i <1;i++)
             {  
                 std::cout<<"sending image data to "<< j<<" chanel: "<<i<<"\n";
                 MPI_Send(&imageArrays[i][(j-1)*fragmentHeight], j == worldSize -1 ? fragmentHeight : workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
@@ -180,7 +180,7 @@ int main(int argc, char** argv)
         MPI_Recv(&workHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         uchar* buffer = new uchar[workHeight];
         
-        for (int i = 0; i <2;i++)
+        for (int i = 0; i <1;i++)
         {  
             uchar* blured;
             std::cout<<"getting image data at "<< worldRank <<" chanel: "<<i<<"\n";
