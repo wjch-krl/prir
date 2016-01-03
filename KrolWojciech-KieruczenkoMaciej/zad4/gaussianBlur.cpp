@@ -108,6 +108,11 @@ cv::Mat* arraysToMat(uchar** m,int chanelCount, int height, int widht)
 
 int main(int argc, char** argv)
 {
+    if(argc != 3)
+    {
+        std::cout<<"Usage: \nmpirun "<<argv[0]<< "INPUT_FILE_PATH OUTPUT_FILE_PATH \n";
+        exit(EXIT_FAILURE);
+    }
     //GaussianBlur* gb = new GaussianBlur();
     // Initialize MPI
     MPI_Init(NULL, NULL);
@@ -122,7 +127,13 @@ int main(int argc, char** argv)
 
     if (worldRank == 0) 
     {
-        cv::Mat inputImage = cv::imread("/Users/wojciechkrol/tmp/dupxo/test.jpg", 1 );
+        cv::Mat inputImage = cv::imread(argv[1], 1 );
+        if(! inputImage.data )                             
+        {
+            cout << "Invalid image \n";
+            MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);            
+            exit(EXIT_FAILURE);
+        }
         int chanelCount =inputImage.channels();
         int imgWidth = inputImage.cols;
         int imgHeight = inputImage.rows / worldSize;
@@ -152,7 +163,7 @@ int main(int argc, char** argv)
     
         
         cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);      
-        cv::imwrite("/Users/wojciechkrol/tmp/dupxo/blured.jpg", *bluredImage);
+        cv::imwrite(argv[2], *bluredImage);
     } 
     else
     {
