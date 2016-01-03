@@ -150,7 +150,6 @@ int main(int argc, char** argv)
         {
             std::cout<<"sending image info to "<< j<<"\n";
             MPI_Send(&chanelCount, 1, MPI_INT, j, 0, MPI_COMM_WORLD);  
-            
             MPI_Send(&imgWidth, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
             MPI_Send(&imgWidth, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
             MPI_Send(&workHeight, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
@@ -175,6 +174,7 @@ int main(int argc, char** argv)
         int workHeight;
         std::cout<<"getting image info at "<< worldRank <<"\n";
         MPI_Recv(&chanelCount, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        std::cout<<"got chanelCount at "<< worldRank <<"\n";
         MPI_Recv(&imgWidth, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(&imgHeight, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(&workHeight, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
