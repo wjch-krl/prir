@@ -1,5 +1,4 @@
 #include <iostream>
-
 #include <mpi.h>
 
 #include <opencv2/core/core.hpp>
@@ -168,25 +167,25 @@ int main(int argc, char** argv)
     } 
     else
     {
-        int chanelCount;
+	int chanelCount;
         int imgWidth;
         int imgHeight;
         int workHeight;
         std::cout<<"getting image info at "<< worldRank <<"\n";
-        MPI_Recv(&chanelCount, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&chanelCount, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         std::cout<<"got chanelCount at "<< worldRank <<"\n";
-        MPI_Recv(&imgWidth, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&imgHeight, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&workHeight, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&imgWidth, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&imgHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&workHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         uchar* buffer = new uchar[workHeight];
         
         for (int i = 0; i <chanelCount;i++)
         {  
             uchar* blured;
             std::cout<<"getting image data at "<< worldRank <<" chanel: "<<i<<"\n";
-            MPI_Recv(buffer, workHeight, MPI_UNSIGNED_CHAR, worldRank,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);  
+            MPI_Recv(buffer, workHeight, MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);  
             blured = Blur(buffer, imgWidth, imgHeight, workHeight);
-            MPI_Send(blured, imgHeight, MPI_UNSIGNED_CHAR, worldRank,0,MPI_COMM_WORLD);     
+            MPI_Send(blured, imgHeight, MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD);     
         }
     }
     
