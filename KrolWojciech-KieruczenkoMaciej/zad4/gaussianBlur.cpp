@@ -158,7 +158,9 @@ int main(int argc, char** argv)
             {  
                 std::cout<<"sending image data to "<< j<<" chanel: "<<i<<"\n";
                 MPI_Send(&imageArrays[i][(j-1)*fragmentHeight], j == worldSize -1 ? fragmentHeight : workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
-                MPI_Recv(&bluredArrays[i][(j-1)*fragmentHeight], fragmentHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);            
+                std::cout<<"getting blured data from "<< j<<" chanel: "<<i<<"\n";
+                MPI_Recv(&bluredArrays[i][(j-1)*fragmentHeight], fragmentHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
+                std::cout<<"got blured \n";           
             }
         }
     
