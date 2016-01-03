@@ -18,44 +18,48 @@ int weights[MASK_SIZE][MASK_SIZE] = {
     {1,1,2,2,2,1,1}
 };;
 
-    uchar* Blur(uchar* image, int width, int height, int workHeight)
+uchar* Blur(uchar* image, int width, int height, int workHeight)
+{
+    uchar* resultImage = new uchar[width+width*height];
+    int offset = MASK_SIZE / 2;
+    for(int i= 0; i< width; i++)
     {
-        uchar* resultImage = new uchar[width+width*height];
-        int offset = MASK_SIZE / 2;
-        for(int i= 0; i< width; i++)
+        for (int j = 0; j< workHeight; j++)
         {
-            for (int j = 0; j< workHeight; j++)
+            int pixelValue = 0;
+            //[i][j] current pixel
+            int weightsIdx = 0;
+            int weightsIdy = 0;
+            int weightsSum = 0;
+            for(weightsIdx = (i - offset) > 0 ? 0 : offset- i;
+                weightsIdx<MASK_SIZE; weightsIdx ++)
             {
-                int pixelValue = 0;
-                //[i][j] current pixel
-                int weightsIdx = 0;
-                int weightsIdy = 0;
-                int weightsSum = 0;
-                for(weightsIdx = (i - offset) > 0 ? 0 : offset- i;
-                    weightsIdx<MASK_SIZE; weightsIdx ++)
+                for(weightsIdy = (j - offset) > 0 ? 0 : offset- j;
+                    weightsIdy<MASK_SIZE; weightsIdy++)
                 {
-                    for(weightsIdy = (j - offset) > 0 ? 0 : offset- j;
-                        weightsIdy<MASK_SIZE; weightsIdy++)
+                    int k = weightsIdx - offset + i;
+                    int l = weightsIdy - offset + j;
+                    if(k<width && l<height)
                     {
-                        int k = weightsIdx - offset + i;
-                        int l = weightsIdy - offset + j;
-                        if(k<width && l<height)
-                        {
-                            pixelValue += weights[weightsIdx][weightsIdy]*image[k+width*l];
-                            weightsSum += weights[weightsIdx][weightsIdy];
-                        }
+                        pixelValue += weights[weightsIdx][weightsIdy]*image[k+width*l];
+                        weightsSum += weights[weightsIdx][weightsIdy];
                     }
                 }
-                pixelValue /= weightsSum;
-                if (pixelValue > 255)
-                    pixelValue = 255;
-                else if (pixelValue < 0)
-                    pixelValue = 0;
-                resultImage[i+width*j] = (uchar)pixelValue;
             }
+            pixelValue /= weightsSum;
+            if (pixelValue > 255)
+            {
+                pixelValue = 255;
+            }
+            else if (pixelValue < 0)
+            {
+                pixelValue = 0;
+            }
+            resultImage[i+width*j] = (uchar)pixelValue;
         }
-        return resultImage;
     }
+    return resultImage;
+}
 
 uchar** matToArrays(cv::Mat& mat)
 {
@@ -109,34 +113,65 @@ int main(int argc, char** argv)
     MPI_Init(NULL, NULL);
 
     // Get number of processes
-    int world_size;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    int worldSize;
+    MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 
     // Get process rank
-    int world_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    int worldRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
 
-    int chanel;
-    if (world_rank == 0) 
+    if (worldRank == 0) 
     {
         cv::Mat inputImage = cv::imread("/Users/wojciechkrol/tmp/dupxo/test.jpg", 1 );
         int chanelCount =inputImage.channels();
+        int imgWidth = inputImage.cols;
+        int imgHeight = inputImage.rows / worldSize;
+        int workHeight = imgHeight + MASK_SIZE;
+        
         uchar** imageArrays = matToArrays(inputImage);
         uchar** bluredArrays = new uchar*[chanelCount];
 
-        for (int i = 0; i <chanelCount;i++)
+    
+        //OR uchar[inputImage.cols* inputImage.rows]
+        bluredArrays = new uchar[inputImage.cols +  inputImage.cols* inputImage.rows];
+        for(int j = 1; j< worldSize ; j++)
         {
-            MPI_Send(&i, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);            
-            bluredArrays[i] = Blur(imageArrays[i], inputImage.cols, inputImage.rows, inputImage.rows);
+            MPI_Send(&chanelCount, 1, MPI_INT, j, 0, MPI_COMM_WORLD);  
+            
+            MPI_Send(&imgWidth, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
+            MPI_Send(&imgWidth, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
+            MPI_Send(&workHeight, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
+                    
+            for (int i = 0; i <chanelCount;i++)
+            {  
+                MPI_Send(&imageArrays[i][j*imgHeight], workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
+                MPI_Recv(&bluredArrays[i][j*imgHeight], imgHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD));            
+            }
         }
+    
         
         cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);      
-        imwrite("/Users/wojciechkrol/tmp/dupxo/blured.jpg", *bluredImage);
+        cv::imwrite("/Users/wojciechkrol/tmp/dupxo/blured.jpg", *bluredImage);
     } 
     else
     {
-        MPI_Recv(&chanel, 1, MPI_INT, 0, 0, MPI_COMM_WORLD,
-                MPI_STATUS_IGNORE);
+        int chanelCount;
+        int imgWidth;
+        int imgHeight;
+        int workHeight;
+        MPI_Recv(&chanelCount, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&imgWidth, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&imgHeight, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&workHeight, 1, MPI_INT, worldRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        uchar* buffer = new uchar[workHeight];
+        
+        for (int i = 0; i <chanelCount;i++)
+        {  
+            uchar* blured;
+            MPI_Recv(buffer, workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD));  
+            blured = Blur(buffer, imgWidth, imgHeight, workHeight);
+            MPI_Send(blured, imgHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);     
+        }
     }
     
     //Cleanup
