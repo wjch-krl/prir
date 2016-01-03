@@ -130,7 +130,7 @@ int main(int argc, char** argv)
         cv::Mat inputImage = cv::imread(argv[1], 1 );
         if(! inputImage.data )                             
         {
-            cout << "Invalid image \n";
+            std::cout << "Invalid image \n";
             MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);            
             exit(EXIT_FAILURE);
         }
