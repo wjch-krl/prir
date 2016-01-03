@@ -130,10 +130,11 @@ int main(int argc, char** argv)
         
         uchar** imageArrays = matToArrays(inputImage);
         uchar** bluredArrays = new uchar*[chanelCount];
-
-    
-        //OR uchar[inputImage.cols* inputImage.rows]
-        bluredArrays = new uchar[inputImage.cols +  inputImage.cols* inputImage.rows];
+        for (int i = 0; i <chanelCount;i++)
+        {  
+            //OR uchar[inputImage.cols* inputImage.rows]
+            bluredArrays[i] = new uchar[inputImage.cols +  inputImage.cols* inputImage.rows];
+        }
         for(int j = 1; j< worldSize ; j++)
         {
             MPI_Send(&chanelCount, 1, MPI_INT, j, 0, MPI_COMM_WORLD);  
@@ -145,7 +146,7 @@ int main(int argc, char** argv)
             for (int i = 0; i <chanelCount;i++)
             {  
                 MPI_Send(&imageArrays[i][j*imgHeight], workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
-                MPI_Recv(&bluredArrays[i][j*imgHeight], imgHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD));            
+                MPI_Recv(&bluredArrays[i][j*imgHeight], imgHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);            
             }
         }
     
@@ -168,9 +169,9 @@ int main(int argc, char** argv)
         for (int i = 0; i <chanelCount;i++)
         {  
             uchar* blured;
-            MPI_Recv(buffer, workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD));  
+            MPI_Recv(buffer, workHeight, MPI_UNSIGNED_CHAR, worldRank,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);  
             blured = Blur(buffer, imgWidth, imgHeight, workHeight);
-            MPI_Send(blured, imgHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);     
+            MPI_Send(blured, imgHeight, MPI_UNSIGNED_CHAR, worldRank,0,MPI_COMM_WORLD);     
         }
     }
     
