@@ -159,9 +159,10 @@ int main(int argc, char** argv)
                 std::cout<<"sending image data to "<< j<<" chanel: "<<i<<"\n";
                 MPI_Send(&imageArrays[i][(j-1)*fragmentHeight], j == worldSize -1 ? fragmentHeight : workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
                 std::cout<<"getting blured data from "<< j<<" chanel: "<<i<<"\n";
-                uchar* buff = new uchar[fragmentHeight];
-                MPI_Recv(buff, fragmentHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
-                std::cout<<"got blured \n";           
+                uchar* buff = new uchar[1000000];
+                MPI_Recv(buff, 100000, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
+                memcpy(&bluredArrays[i][(j-1)*fragmentHeight],buff, fragmentHeight);
+		std::cout<<"got blured \n";           
             }
         }
     
