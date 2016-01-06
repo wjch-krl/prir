@@ -5,25 +5,24 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#define MASK_SIZE 7
+#define MASK_SIZE 5
 
 int weights[MASK_SIZE][MASK_SIZE] = {
-    {1,1,2,2,2,1,1},
-    {1,2,2,4,2,2,1},
-    {2,2,4,8,4,2,2},
-    {2,4,8,16,8,4,2},
-    {2,2,4,8,4,2,2},
-    {1,2,2,4,2,2,1},
-    {1,1,2,2,2,1,1}
+    {2,2,4,2,2},
+    {2,4,8,4,2},
+    {4,8,16,8,4},
+    {2,4,8,4,2},
+    {2,2,4,2,2},
 };;
 
-uchar* Blur(uchar* image, int width, int height, int workHeight)
+uchar* Blur(uchar* image, int width, int startRow, int endRow)
 {
-    uchar* resultImage = new uchar[width+width*height];
+    std::cout<<"got image imgWidth:"<<width<<" startRow:"<<startRow<<" endRow:"<<endRow<<"\n";
+    uchar* resultImage = new uchar[width*(endRow - startRow)];
     int offset = MASK_SIZE / 2;
     for(int i= 0; i< width; i++)
     {
-        for (int j = 0; j< workHeight; j++)
+        for (int j = startRow; j< endRow; j++)
         {
             int pixelValue = 0;
             //[i][j] current pixel
@@ -38,14 +37,17 @@ uchar* Blur(uchar* image, int width, int height, int workHeight)
                 {
                     int k = weightsIdx - offset + i;
                     int l = weightsIdy - offset + j;
-                    if(k<width && l<height)
+                    if(k<width)
                     {
                         pixelValue += weights[weightsIdx][weightsIdy]*image[k+width*l];
                         weightsSum += weights[weightsIdx][weightsIdy];
                     }
                 }
             }
-            pixelValue /= weightsSum;
+            if(weightsSum > 0)
+            {
+                pixelValue /= weightsSum;
+            }
             if (pixelValue > 255)
             {
                 pixelValue = 255;
@@ -54,7 +56,7 @@ uchar* Blur(uchar* image, int width, int height, int workHeight)
             {
                 pixelValue = 0;
             }
-            resultImage[i+width*j] = (uchar)pixelValue;
+            resultImage[i+width*(j-startRow)] = (uchar)pixelValue;
         }
     }
     return resultImage;
@@ -104,9 +106,31 @@ cv::Mat* arraysToMat(uchar** m,int chanelCount, int height, int widht)
     return mat;
 }
 
+void getOffset(int machineCount,int machineNumber, int* upper, int* lower)
+{
+    if(machineNumber == 0)
+    {
+        *upper =0;
+    } 
+    else 
+    {
+        *upper = MASK_SIZE / 2;        
+    } 
+    if (machineNumber == machineCount -1)
+    {
+        *lower =0;
+    }
+    else
+    {
+        *lower = MASK_SIZE / 2;
+    }
+}
 
 int main(int argc, char** argv)
 {
+    int worldSize;
+    int worldRank;
+    
     if(argc != 3)
     {
         std::cout<<"Usage: \nmpirun "<<argv[0]<< " INPUT_FILE_PATH OUTPUT_FILE_PATH \n";
@@ -117,12 +141,11 @@ int main(int argc, char** argv)
     MPI_Init(NULL, NULL);
 
     // Get number of processes
-    int worldSize;
     MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 
     // Get process rank
-    int worldRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
+    MPI_Request* asyncRequests = new MPI_Request[worldSize - 1];
 
     if (worldRank == 0) 
     {
@@ -136,9 +159,7 @@ int main(int argc, char** argv)
         int chanelCount =inputImage.channels();
         int imgWidth = inputImage.cols;
         int imgHeight = inputImage.rows;
-        int fragmentHeight = inputImage.rows / worldSize;
-        int workHeight = fragmentHeight + MASK_SIZE;
-        
+
         uchar** imageArrays = matToArrays(inputImage);
         uchar** bluredArrays = new uchar*[chanelCount];
         for (int i = 0; i <chanelCount;i++)
@@ -146,26 +167,42 @@ int main(int argc, char** argv)
             //OR uchar[inputImage.cols* inputImage.rows]
             bluredArrays[i] = new uchar[inputImage.cols +  inputImage.cols* inputImage.rows];
         }
-        for(int j = 1; j< worldSize ; j++)
+        
+        int splitCount = worldSize - 1;
+        for(int j = 0; j< splitCount; j++)
         {
-            std::cout<<"sending image info to "<< j<<"\n";
-            MPI_Send(&chanelCount, 1, MPI_INT, j, 0, MPI_COMM_WORLD);  
-            MPI_Send(&imgWidth, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
-            MPI_Send(&fragmentHeight, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
-            MPI_Send(&workHeight, 1, MPI_INT, j, 0, MPI_COMM_WORLD);            
+            MPI_Request req;
+            int targetId = j + 1;
+            MPI_Isend(&chanelCount, 1, MPI_INT, targetId, 0, MPI_COMM_WORLD,&req);  
+            MPI_Request_free(&req);
+            MPI_Isend(&imgWidth, 1, MPI_INT, targetId, 0, MPI_COMM_WORLD,&req);      
+            MPI_Request_free(&req);
+            MPI_Isend(&imgHeight, 1, MPI_INT, targetId, 0, MPI_COMM_WORLD,&req);            
+            MPI_Request_free(&req);
+            
+
                     
             for (int i = 0; i <chanelCount;i++)
             {  
-                std::cout<<"sending image data to "<< j<<" chanel: "<<i<<"\n";
-                MPI_Send(&imageArrays[i][(j-1)*fragmentHeight], j == worldSize -1 ? fragmentHeight : workHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD);
-                std::cout<<"getting blured data from "<< j<<" chanel: "<<i<<"\n";
-                MPI_Recv(&blured[i][(j-1)*fragmentHeight], fragmentHeight, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
-                std::cout<<"got blured \n";           
-//                 uchar* buff = new uchar[1000000];
-//                 MPI_Recv(buff, 100000, MPI_UNSIGNED_CHAR, j,0,MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
-//                 memcpy(&bluredArrays[i][(j-1)*fragmentHeight],buff, fragmentHeight);
-                std::cout<<"got blured \n";           
+                int startRow;
+                int endRow;
+                getOffset(splitCount, j, &startRow,&endRow);
+                int end = imgHeight / splitCount * (j+1) + endRow;
+                int start = imgHeight / splitCount * (j) - startRow;
+                int count = end - start;
+                std::cout<<"end "<< end << " start " << start << " count " << count <<"\n";                
+                MPI_Isend(&imageArrays[i][start*imgWidth], count*imgWidth, MPI_UNSIGNED_CHAR, 
+                    targetId,0,MPI_COMM_WORLD,&req);
+                MPI_Request_free(&req);
+                MPI_Irecv(&bluredArrays[i][(imgHeight / splitCount * (j))*imgWidth], imgHeight/splitCount*imgWidth,
+                     MPI_UNSIGNED_CHAR, targetId,0,MPI_COMM_WORLD, &asyncRequests[j]); 
+                std::cout<<"got blured \n";
             }
+        }
+        //Wait for all taks to complete
+        for(int j = 0; j< worldSize -1 ; j++)
+        {
+            MPI_Wait(&asyncRequests[j], NULL);
         }
         cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);      
         cv::imwrite(argv[2], *bluredImage);
@@ -174,24 +211,31 @@ int main(int argc, char** argv)
     {
 	    int chanelCount;
         int imgWidth;
-        int fragmentHeight;
-        int workHeight;
-        std::cout<<"getting image info at "<< worldRank <<"\n";
+        int imgHeight;
+        int bufferSize;
         MPI_Recv(&chanelCount, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        std::cout<<"got chanelCount at "<< worldRank <<"\n";
         MPI_Recv(&imgWidth, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&fragmentHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&workHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        uchar* buffer = new uchar[workHeight];
+        MPI_Recv(&imgHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        int fragmentCount = worldSize - 1;
         
+        bufferSize = (imgHeight / fragmentCount + MASK_SIZE)*imgWidth;
+        uchar* buffer = new uchar[bufferSize];
+       
+        int startRow;
+        int endRow;
+        getOffset(fragmentCount, worldRank,&startRow,&endRow);
+        // int end = imgHeight / worldSize * (worldRank+1) + endRow;
+        // int start = imgHeight / worldSize * (worldRank) - startRow;
+        int count = imgHeight / fragmentCount - endRow - startRow;
+                
         for (int i = 0; i <chanelCount;i++)
         {  
             uchar* blured;
-            std::cout<<"getting image data at "<< worldRank <<" chanel: "<<i<<"\n";
-            MPI_Recv(buffer, workHeight, MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);  
-            blured = Blur(buffer, imgWidth, fragmentHeight, workHeight);
+           // std::cout<<"end "<< end << " start " << start << " count " << count <<"\n";
+            MPI_Recv(buffer, bufferSize, MPI_UNSIGNED_CHAR, 0,0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
+            blured = Blur(buffer, imgWidth, startRow, imgHeight / fragmentCount); //dodac wysokość
             std::cout<<"sending blured image data at "<< worldRank <<" chanel: "<<i<<"\n";
-            MPI_Send(blured, fragmentHeight, MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD);     
+            MPI_Send(blured, imgWidth*(imgHeight / fragmentCount - startRow), MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD);     
         }
     }
     
