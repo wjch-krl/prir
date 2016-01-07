@@ -15,6 +15,13 @@ int weights[MASK_SIZE][MASK_SIZE] = {
     {2,2,4,2,2},
 };;
 
+void exitFailure()
+{
+    MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);    
+    MPI_Finalize();        
+    exit(EXIT_FAILURE);
+}
+
 uchar* Blur(uchar* image, int width, int startRow, int endRow)
 {
     std::cout<<"create buffer for"<<endRow - startRow<<" rows.\n";
@@ -279,11 +286,4 @@ int main(int argc, char** argv)
     }
     //Cleanup
     MPI_Finalize();
-}
-
-void exitFailure()
-{
-    MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);    
-    MPI_Finalize();        
-    exit(EXIT_FAILURE);
 }
