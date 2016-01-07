@@ -24,11 +24,10 @@ void exitFailure()
     exit(EXIT_FAILURE);
 }
 
-uchar* Blur(uchar* image, int width, int startRow, int endRow)
+uchar* Blur(uchar* image, int width, int startRow, int endRow, int heigth)
 {
     std::cout<<"create buffer for"<<endRow - startRow<<" rows.\n";
     uchar* resultImage = new uchar[width*(endRow - startRow)];
-	//memcpy(resultImage,image,width*(endRow - startRow));
     int offset = MASK_SIZE / 2;
     for(int i= 0; i< width; i++)
     {
@@ -196,7 +195,7 @@ void masterTask(int worldSize, const char* inputPath, const char* resultPath,MPI
     cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);    
     auto t2 = std::chrono::high_resolution_clock::now();
     cv::imwrite(resultPath, *bluredImage);
-	std::cout << "Time: " <<  std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms\n";
+    std::cout << "Time: " <<  std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms\n";
 }
 
 void slaveTask(int worldSize, int worldRank)
@@ -220,8 +219,6 @@ void slaveTask(int worldSize, int worldRank)
     buffer = new uchar[bufferSize];
 
     getOffset(fragmentCount, worldRank,&startRow,&endRow);
-    // int end = imgHeight / worldSize * (worldRank+1) + endRow;
-    // int start = imgHeight / worldSize * (worldRank) - startRow;
     count = imgHeight / fragmentCount - endRow - startRow;
     if(worldRank == worldSize - 1)
     {
@@ -230,7 +227,6 @@ void slaveTask(int worldSize, int worldRank)
     for (int i = 0; i <chanelCount;i++)
     {  
         uchar* blured;
-        // std::cout<<"end "<< end << " start " << start << " count " << count <<"\n";
         MPI_Recv(buffer, bufferSize, MPI_UNSIGNED_CHAR, 0,0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
         blured = Blur(buffer, imgWidth, startRow, imgHeight / fragmentCount +MASK_SIZE/2); //dodac wysokość
         std::cout<<"Slave: Sending "<< imgHeight / fragmentCount - startRow <<" rows \n";
