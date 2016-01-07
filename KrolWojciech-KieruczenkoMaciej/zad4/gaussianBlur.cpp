@@ -142,7 +142,7 @@ void masterTask(int worldSize, const char* inputPath, const char* resultPath,MPI
     for (int i = 0; i <chanelCount;i++)
     {  
         //OR uchar[inputImage.cols* inputImage.rows]
-        bluredArrays[i] = new uchar[inputImage.cols +  inputImage.cols* inputImage.rows];
+        bluredArrays[i] = new uchar[inputImage.cols* inputImage.rows];
     }
     
     int splitCount = worldSize - 1;
