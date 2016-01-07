@@ -1,2 +1,2 @@
 make
-mpirun -n 4 ./gaus_mpi test.jpg blured.jpg
+mpirun -n 6 ./gaus_mpi test.jpg blured.jpg

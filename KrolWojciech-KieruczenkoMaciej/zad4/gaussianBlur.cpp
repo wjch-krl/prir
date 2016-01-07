@@ -1,3 +1,8 @@
+/* 
+Szczerze mówiąc zabrakło troche czasu na dodanie komentarzy i refaktoryzację - 
+kod jest nieczytelny i neotypamlny.
+ALE DZIAŁA 
+*/
 #include <iostream>
 #include <chrono>
 
@@ -9,6 +14,7 @@
 
 #define MASK_SIZE 5
 
+/*Weigths matrix*/
 int weights[MASK_SIZE][MASK_SIZE] = {
 	{1, 1, 2, 1, 1},
 	{1, 2, 4, 2, 1},
@@ -17,6 +23,7 @@ int weights[MASK_SIZE][MASK_SIZE] = {
 	{1, 1, 2, 1, 1},
 };;
 
+/*Exit and cleanup*/
 void exitFailure()
 {
     MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);    
@@ -24,9 +31,9 @@ void exitFailure()
     exit(EXIT_FAILURE);
 }
 
+/*Performs gaussian blur*/
 uchar* Blur(uchar* image, int width, int startRow, int endRow, int heigth)
 {
-    std::cout<<"create buffer for"<<endRow - startRow<<" rows.\n";
     uchar* resultImage = new uchar[width*(endRow - startRow)];
     int offset = MASK_SIZE / 2;
     for(int i= 0; i< width; i++)
@@ -71,6 +78,7 @@ uchar* Blur(uchar* image, int width, int startRow, int endRow, int heigth)
     return resultImage;
 }
 
+/*Converts image to array of chanels each one as 1dim array*/
 uchar** matToArrays(cv::Mat& mat)
 {
     int chanels = mat.channels();
@@ -97,6 +105,7 @@ uchar** matToArrays(cv::Mat& mat)
     return m;
 }
 
+/*Converts array of chanles represented by 1dimm array to Mat*/
 cv::Mat* arraysToMat(uchar** m,int chanelCount, int height, int widht)
 {
     cv:: Mat* mat = new cv::Mat(height,widht,CV_8UC(chanelCount));
@@ -115,6 +124,7 @@ cv::Mat* arraysToMat(uchar** m,int chanelCount, int height, int widht)
     return mat;
 }
 
+/*Gets offset from current id and machine number*/
 void getOffset(int machineCount,int machineNumber, int* upper, int* lower)
 {
     if(machineNumber == 0)
@@ -135,6 +145,7 @@ void getOffset(int machineCount,int machineNumber, int* upper, int* lower)
     }
 }
 
+/*Operations performed on master node - read image, split, send to slaves, get results, and save blured image */
 void masterTask(int worldSize, const char* inputPath, const char* resultPath,MPI_Request* asyncRequests)
 {
     cv::Mat inputImage = cv::imread(inputPath, 1 );
@@ -151,7 +162,6 @@ void masterTask(int worldSize, const char* inputPath, const char* resultPath,MPI
     uchar** bluredArrays = new uchar*[chanelCount];
     for (int i = 0; i <chanelCount;i++)
     {  
-        //OR uchar[inputImage.cols* inputImage.rows]
         bluredArrays[i] = new uchar[inputImage.cols* inputImage.rows];
     }
     
@@ -174,19 +184,24 @@ void masterTask(int worldSize, const char* inputPath, const char* resultPath,MPI
             getOffset(splitCount, j, &startRow,&endRow);
             int end = imgHeight / splitCount * (j+1) + endRow;
             int start = imgHeight / splitCount * (j) - startRow;
-            int count = end - start;
-            if(j == worldSize - 1)
+            int count = end - start + MASK_SIZE/2;
+            if(j == splitCount - 1)
             {
                 count += imgHeight % splitCount;
             }
-            std::cout<<"Master: Sending " << count <<" rows \n";                
             MPI_Isend(&imageArrays[i][start*imgWidth], count*imgWidth, MPI_UNSIGNED_CHAR, 
                 targetId,0,MPI_COMM_WORLD,&req);
             MPI_Request_free(&req);
-            MPI_Irecv(&bluredArrays[i][(imgHeight / splitCount * (j))*imgWidth], (imgHeight/splitCount)*imgWidth,
+            int sendCount = imgHeight/splitCount;
+            if(j == splitCount - 1)
+            {
+                sendCount += imgHeight % splitCount;
+            }
+            MPI_Irecv(&bluredArrays[i][(imgHeight / splitCount * (j))*imgWidth], (sendCount)*imgWidth,
                     MPI_UNSIGNED_CHAR, targetId,0,MPI_COMM_WORLD, &asyncRequests[j]); 
         }
     }
+    
     //Wait for all taks to complete
     for(int j = 0; j< worldSize -1 ; j++)
     {
@@ -194,10 +209,18 @@ void masterTask(int worldSize, const char* inputPath, const char* resultPath,MPI
     }
     cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);    
     auto t2 = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i <chanelCount;i++)
+    {  
+        delete [] imageArrays[i];
+        delete [] bluredArrays[i];
+    }
+    delete [] bluredArrays;
+    delete [] imageArrays;
     cv::imwrite(resultPath, *bluredImage);
     std::cout << "Time: " <<  std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms\n";
 }
 
+/*Operations performed on slaves - read data, blur given image, send it back to master*/
 void slaveTask(int worldSize, int worldRank)
 {
     int chanelCount;
@@ -215,23 +238,29 @@ void slaveTask(int worldSize, int worldRank)
     MPI_Recv(&imgHeight, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     fragmentCount = worldSize - 1;
     
-    bufferSize = (imgHeight / fragmentCount + MASK_SIZE)*imgWidth;
+    bufferSize = (imgHeight / fragmentCount + MASK_SIZE*2 + imgHeight % fragmentCount)*imgWidth;
     buffer = new uchar[bufferSize];
 
     getOffset(fragmentCount, worldRank,&startRow,&endRow);
-    count = imgHeight / fragmentCount - endRow - startRow;
+    count = imgHeight / fragmentCount +MASK_SIZE/2;
     if(worldRank == worldSize - 1)
-    {
-        count += imgHeight % fragmentCount;
-    }
+     {
+         count += imgHeight % fragmentCount;
+     }
     for (int i = 0; i <chanelCount;i++)
     {  
         uchar* blured;
         MPI_Recv(buffer, bufferSize, MPI_UNSIGNED_CHAR, 0,0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); 
-        blured = Blur(buffer, imgWidth, startRow, imgHeight / fragmentCount +MASK_SIZE/2); //dodac wysokość
-        std::cout<<"Slave: Sending "<< imgHeight / fragmentCount - startRow <<" rows \n";
-        MPI_Send(blured, imgWidth*(imgHeight / fragmentCount - startRow +MASK_SIZE/2), MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD);     
+        blured = Blur(buffer, imgWidth, startRow,count,1); 
+        int sendCount = imgHeight / fragmentCount;
+        if(worldRank == worldSize - 1)
+        {
+            sendCount += imgHeight % fragmentCount;
+        }
+        MPI_Send(blured, imgWidth*(sendCount), MPI_UNSIGNED_CHAR, 0,0,MPI_COMM_WORLD);     
+        delete[] blured;
     }
+    delete[] buffer;
 }
 
 int main(int argc, char** argv)
@@ -253,13 +282,15 @@ int main(int argc, char** argv)
 
     // Get process rank
     MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
-    MPI_Request* asyncRequests = new MPI_Request[worldSize - 1];
 	
     if (worldRank == 0) 
     {
+        //Perform master
         try
         {
+            MPI_Request* asyncRequests = new MPI_Request[worldSize - 1];
             masterTask(worldSize, argv[1],argv[2],asyncRequests);
+            delete[] asyncRequests;
         } 
         catch(std::string e)
         {
@@ -273,6 +304,7 @@ int main(int argc, char** argv)
     } 
     else
     {
+        //Perform slave
         try
         {
 	       slaveTask(worldSize,worldRank);
