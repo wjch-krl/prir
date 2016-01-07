@@ -1,4 +1,6 @@
 #include <iostream>
+#include <chrono>
+
 #include <mpi.h>
 
 #include <opencv2/core/core.hpp>
@@ -8,11 +10,11 @@
 #define MASK_SIZE 5
 
 int weights[MASK_SIZE][MASK_SIZE] = {
-    {2,2,4,2,2},
-    {2,4,8,4,2},
-    {4,8,16,8,4},
-    {2,4,8,4,2},
-    {2,2,4,2,2},
+	{1, 1, 2, 1, 1},
+	{1, 2, 4, 2, 1},
+	{2, 4, 8, 4, 2},
+	{1, 2, 4, 2, 1},
+	{1, 1, 2, 1, 1},
 };;
 
 void exitFailure()
@@ -26,6 +28,7 @@ uchar* Blur(uchar* image, int width, int startRow, int endRow)
 {
     std::cout<<"create buffer for"<<endRow - startRow<<" rows.\n";
     uchar* resultImage = new uchar[width*(endRow - startRow)];
+	//memcpy(resultImage,image,width*(endRow - startRow));
     int offset = MASK_SIZE / 2;
     for(int i= 0; i< width; i++)
     {
@@ -140,6 +143,7 @@ void masterTask(int worldSize, const char* inputPath, const char* resultPath,MPI
     {
         throw std::string("Invalid image \n");
     }
+	auto t1 = std::chrono::high_resolution_clock::now();
     int chanelCount =inputImage.channels();
     int imgWidth = inputImage.cols;
     int imgHeight = inputImage.rows;
@@ -189,8 +193,10 @@ void masterTask(int worldSize, const char* inputPath, const char* resultPath,MPI
     {
         MPI_Wait(&asyncRequests[j], NULL);
     }
-    cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);      
+    cv::Mat* bluredImage = arraysToMat(bluredArrays, chanelCount, inputImage.rows, inputImage.cols);    
+    auto t2 = std::chrono::high_resolution_clock::now();
     cv::imwrite(resultPath, *bluredImage);
+	std::cout << "Time: " <<  std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << " ms\n";
 }
 
 void slaveTask(int worldSize, int worldRank)
@@ -252,6 +258,7 @@ int main(int argc, char** argv)
     // Get process rank
     MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
     MPI_Request* asyncRequests = new MPI_Request[worldSize - 1];
+	
     if (worldRank == 0) 
     {
         try
