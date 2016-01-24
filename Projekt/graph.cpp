@@ -97,19 +97,34 @@ namespace graph
     {
         private:
             std::vector<Edge*> edges;
+            int vertexCount;
         public:
             Graph(std::vector<Edge*> edges)
             {
                 this->edges = edges;
+                this->SerilizedSize += sizeof(int);                this->vertexCount = 0;
+
+                bool* tmp = new bool[edges.size()];
                 for(auto &edge : edges)
                 {
                     this->SerilizedSize += edge->SerilizedSize;
+                    tmp[edge->getA()->getId()] = true;
+                    tmp[edge->getB()->getId()] = true;
+                }
+                for(int i = 0; i< edges.size(); i++)
+                {
+                    if(tmp[i])
+                    {
+                        vertexCount++;
+                    }
                 }
             }
             
             Graph(unsigned char* buffer, int buffSize)
             {
                 int usedBytes = 0;
+                vertexCount = *((int*)buffer);
+                usedBytes+= sizeof(int);
                 while(usedBytes < buffSize)
                 {
                     Edge* newEdge = new Edge(buffer + usedBytes);
@@ -127,20 +142,25 @@ namespace graph
             }
             
             
-            void serialize(unsigned char* buffer) override
-            {   
-                unsigned char* tmpBuff = buffer;
-                for(auto &edge : edges)
-                {
+            void serialize(unsigned char* buffer) override {
+                unsigned char *tmpBuff = buffer;
+                int *tmp = (int *) (tmpBuff);
+                *tmp = vertexCount;
+                tmpBuff += sizeof(int);
+                for (auto &edge : edges) {
                     edge->serialize(tmpBuff);
                     tmpBuff = tmpBuff + edge->SerilizedSize;
                 }
             }
-            
+
             std::vector<Edge*> getEdges()
             {
                 return edges;
             }
+
+        int getVertexCount(){
+            return vertexCount;
+        }
     };
     
     class VertexWithNeighbour

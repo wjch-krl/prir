@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include "common.h"
+#include "graph.h"
 
 /*Exit and cleanup*/
 namespace mpi 
@@ -61,6 +62,20 @@ namespace mpi
             MPI_Bcast(buffer,bufferSize,MPI_UNSIGNED_CHAR,
                 worldRank, MPI_COMM_WORLD);
         }
+
+        template<typename T> void bcastGen(T object)
+        {
+            MPI_Bcast(&object, sizeof(T)/ sizeof(unsigned char),MPI_UNSIGNED_CHAR,
+                      worldRank, MPI_COMM_WORLD);
+        }
+
+        template<typename T> T recBcastGen(int root)
+        {
+            T object = 0;
+            MPI_Bcast(&object, sizeof(T)/ sizeof(unsigned char),MPI_UNSIGNED_CHAR,
+                      root, MPI_COMM_WORLD);
+            return object;
+        }
         
         Graph* reciveGraph(int source)
         {
@@ -100,14 +115,20 @@ namespace mpi
             return new Vertex(buffer);
         }
         
-        //Or not nessecery
-        Graph* sendTask(Vertex* start, Vertex* stop, int destination)
+        void sendTask(Vertex* start, Vertex* stop, int destination)
         {
             send(start,destination);
             send(stop,destination);
-            return reciveGraph(destination);
+        //    return reciveGen<double>(destination);
         }
-        
+
+        template<typename T> T reciveCost(int source)
+        {
+            T object;
+            MPI_Recv(&object, sizeof(T)/ sizeof(unsigned char), MPI_UNSIGNED_CHAR, source, 0,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+
         std::tuple<Vertex*,Vertex*> reciveTask(int source)
         {
             return std::make_tuple(reciveVertex(source),reciveVertex(source));
