@@ -48,23 +48,20 @@ int main(int argc, char** argv)
             {
                 mpi.sendTask(std::get<0>(tasks[i]),std::get<1>(tasks[i]),1);
             }
-            std::cout<<"aa";
-
         }
         else
         {
             graph = mpi.reciveGraphBcast(MpiHelper::RootId);
             auto path = new BellmanFordShortestPath(graph);
             std::cout <<"Slave: " << graph->getVertexCount() << "\n";
-            int tasksCount = mpi.recBcastGen<int>(MpiHelper::RootId);
-            std::cout<<tasksCount;
+            long tasksCount = mpi.recBcastGen<long>(MpiHelper::RootId);
             for(int i = 0 ; i<tasksCount ; i++)
             {
                 auto task = mpi.reciveTask(MpiHelper::RootId);
-                std::cout <<"got task: "<< std::get<0>(task)->getId() << " " << std::get<1>(task)->getId()  <<"\n";
-
+                std::cout <<"Got task: "<< std::get<0>(task)->getId() << " " << std::get<1>(task)->getId()  <<". ";
+                double pathCost =  path->ShortestPath(std::get<0>(task)->getId(),std::get<1>(task)->getId());
+                std::cout <<"Shortest path cost: " << pathCost << "\n";
             }
-            std::cout<<"dd";
         }
     } catch (std::string ex)
     {
