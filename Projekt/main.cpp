@@ -32,7 +32,7 @@ void calculatePaths(MpiHelper* mpi) {
     for (int i = 0; i < tasksCount / mpi->getWordSize(); i++)
     {
         auto task = mpi->reciveTask(MpiHelper::RootId);
-        double pathCost = path->ShortestPath(std::__1::get<0>(task)->getId(), std::__1::get<1>(task)->getId());
+        double pathCost = path->ShortestPath(std::get<0>(task)->getId(), std::get<1>(task)->getId());
         mpi->send(new SimpleBinarySerializable<double>(pathCost), MpiHelper::RootId);
     }
 }
