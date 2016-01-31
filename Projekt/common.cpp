@@ -17,4 +17,22 @@ namespace common
         }
         virtual void serialize(unsigned char* buffer) = 0;
     };
+
+    template <typename T> class SimpleBinarySerializable : public BinarySerializable
+    {
+    private:
+        T value;
+    public:
+        SimpleBinarySerializable(T value)
+        {
+            this->value = value;
+            this->SerilizedSize = sizeof(T);
+        }
+
+        void serialize(unsigned char* buffer) override
+        {
+            T* serialized = (T*)(buffer);
+            *serialized = value;
+        }
+    };
 }

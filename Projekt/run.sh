@@ -1,3 +1,3 @@
 make clean
 make
-mpirun -n 2 proj graph.txt tasks.txt results
+mpirun -n 4 proj graph.txt tasks.txt

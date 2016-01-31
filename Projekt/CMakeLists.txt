@@ -7,6 +7,7 @@ set(SOURCE_FILES
         main.cpp
         dijkstraMpi.cpp
         shortestPath.cpp
+        mpiHelper.cpp
     )
 
 #set(CMAKE_C_COMPILER mpicc)

@@ -98,8 +98,8 @@ namespace shortestPath
                 int u = graph->getEdges()[i]->getA()->getId();
                 int v = graph->getEdges()[i]->getB()->getId();
                 double weight = graph->getEdges()[i]->getCost();
-                if (dist[u] != INT_MAX && dist[u] + weight < dist[v])
-                    throw std::string("Graph contains negative weight cycle");
+                //if (dist[u] != INT_MAX && dist[u] + weight < dist[v])
+                    //throw std::string("Graph contains negative weight cycle");
             }
 
             return dist[dstId];

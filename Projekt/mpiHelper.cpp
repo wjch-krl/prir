@@ -50,7 +50,17 @@ namespace mpi
             MPI_Send(buffer, object->SerilizedSize, MPI_UNSIGNED_CHAR,
                 destination, 0, MPI_COMM_WORLD);
         }
-        
+
+        MPI_Request* sendAsync(BinarySerializable* object, int destination)
+        {
+            unsigned char* buffer;
+            buffer = object->serialize();
+            MPI_Request* request = new MPI_Request();
+            MPI_Isend(buffer, object->SerilizedSize, MPI_UNSIGNED_CHAR,
+                     destination, 0, MPI_COMM_WORLD, request);
+            return request;
+        }
+
         void bcast(BinarySerializable* object)
         {
             unsigned char* buffer;
@@ -114,12 +124,28 @@ namespace mpi
                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             return new Vertex(buffer);
         }
-        
-        void sendTask(Vertex* start, Vertex* stop, int destination)
+
+        double sendTask(Vertex* start, Vertex* stop, int destination)
         {
             send(start,destination);
             send(stop,destination);
-        //    return reciveGen<double>(destination);
+            return reciveCost<double>(destination);
+        }
+
+        void sendTaskAsync(Vertex* start, Vertex* stop, int destination)
+        {
+            auto tmp = sendAsync(start,destination);
+            MPI_Request_free(tmp);
+            tmp = sendAsync(stop,destination);
+            MPI_Request_free(tmp);
+        }
+
+        MPI_Request* getCostAsync(int source,double *cost)
+        {
+            MPI_Request* request = new MPI_Request();
+            MPI_Irecv(cost, 1, MPI_DOUBLE,
+                      source, 0, MPI_COMM_WORLD, request);
+            return request;
         }
 
         template<typename T> T reciveCost(int source)
@@ -127,11 +153,26 @@ namespace mpi
             T object;
             MPI_Recv(&object, sizeof(T)/ sizeof(unsigned char), MPI_UNSIGNED_CHAR, source, 0,
                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            return object;
         }
 
         std::tuple<Vertex*,Vertex*> reciveTask(int source)
         {
             return std::make_tuple(reciveVertex(source),reciveVertex(source));
+        }
+
+        int getWordSize()
+        {
+            return worldSize;
+        }
+
+        int getWordRank() {
+            return worldRank;
+        }
+
+        void waitForAll(MPI_Request* asyncTasks,int count)
+        {
+            MPI_Waitall(count,asyncTasks,MPI_STATUSES_IGNORE);
         }
     };
 }
